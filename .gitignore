@@ -52,24 +52,31 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# emacs
+# IDE / Editors
 .dir-locals.el
-
-# emacs temp file suffixes
 *~
 .#*
 \#*#
-
-# eclipse setting
 .settings
+.vscode/
+.idea/
+*.sln
 
-# MacOS directory files
+# MacOS / Windows directory files
 .DS_Store
+Thumbs.db
 
-# Application project files
-**/sdkconfig
+#=======================================
+# ESP-IDF SPECIFIC (Đã được tối ưu)
+#=======================================
+# 1. Bỏ qua TẤT CẢ các thư mục build ở mọi cấp (Giải quyết triệt để vấn đề của bạn)
+**/build/
+
+# 2. Bỏ qua thư viện tự động tải về (Ví dụ: led_strip)
+**/managed_components/
+
+# 3. Chỉ bỏ qua file cấu hình cũ, BẮT BUỘC giữ lại sdkconfig gốc
 **/sdkconfig.old
-**/build
 
 # Doc build artifacts
 docs/*/*/_build/

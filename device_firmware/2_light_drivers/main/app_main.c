@@ -16,7 +16,7 @@
 #include "esp_log.h"
 
 #include "app_storage.h"
-#include "app_priv.h"
+#include "include/app_priv.h"
 
 static const char *TAG = "light_drivers";
 

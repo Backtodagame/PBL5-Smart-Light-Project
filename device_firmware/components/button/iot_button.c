@@ -18,17 +18,21 @@
 #include "freertos/timers.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
-#include "iot_button.h"
 #include "esp_timer.h"
 #include "sdkconfig.h"
+
+#include "iot_button.h"
+/* Bổ sung header của ADC và GPIO button để tránh lỗi implicit declaration */
+#include "button_adc.h"
+#include "button_gpio.h"
 
 static const char *TAG = "button";
 
 #define BTN_CHECK(a, str, ret_val)                          \
-    if (!(a))                                                     \
-    {                                                             \
+    if (!(a))                                               \
+    {                                                       \
         ESP_LOGE(TAG, "%s(%d): %s", __FUNCTION__, __LINE__, str); \
-        return (ret_val);                                         \
+        return (ret_val);                                   \
     }
 
 typedef struct Button {
@@ -51,6 +55,22 @@ static button_dev_t *g_head_handle = NULL;
 static esp_timer_handle_t g_button_timer_handle;
 static bool g_is_timer_running = false;
 
+#ifndef CONFIG_BUTTON_PERIOD_TIME_MS
+#define CONFIG_BUTTON_PERIOD_TIME_MS 10
+#endif
+
+#ifndef CONFIG_BUTTON_DEBOUNCE_TICKS
+#define CONFIG_BUTTON_DEBOUNCE_TICKS 2
+#endif
+
+#ifndef CONFIG_BUTTON_SHORT_PRESS_TIME_MS
+#define CONFIG_BUTTON_SHORT_PRESS_TIME_MS 150
+#endif
+
+#ifndef CONFIG_BUTTON_LONG_PRESS_TIME_MS
+#define CONFIG_BUTTON_LONG_PRESS_TIME_MS 1500
+#endif
+
 #define TICKS_INTERVAL    CONFIG_BUTTON_PERIOD_TIME_MS
 #define DEBOUNCE_TICKS    CONFIG_BUTTON_DEBOUNCE_TICKS //MAX 8
 #define SHORT_TICKS       (CONFIG_BUTTON_SHORT_PRESS_TIME_MS /TICKS_INTERVAL)
@@ -59,8 +79,8 @@ static bool g_is_timer_running = false;
 #define CALL_EVENT_CB(ev)   if(btn->cb[ev])btn->cb[ev](btn)
 
 /**
-  * @brief  Button driver core function, driver state machine.
-  */
+ * @brief  Button driver core function, driver state machine.
+ */
 static void button_handler(button_dev_t *btn)
 {
     uint8_t read_gpio_level = btn->hal_button_Level(btn->usr_data);
@@ -180,14 +200,21 @@ static button_dev_t *button_create_com(uint8_t active_level, uint8_t (*hal_get_k
     g_head_handle = btn;
 
     if (false == g_is_timer_running) {
-        esp_timer_create_args_t button_timer;
-        button_timer.arg = NULL;
-        button_timer.callback = button_cb;
-        button_timer.dispatch_method = ESP_TIMER_TASK;
-        button_timer.name = "button_timer";
-        esp_timer_create(&button_timer, &g_button_timer_handle);
-        esp_timer_start_periodic(g_button_timer_handle, TICKS_INTERVAL * 1000U);
-        g_is_timer_running = true;
+        // Cấu hình timer tương thích với ESP-IDF v6
+        esp_timer_create_args_t button_timer = {
+            .arg = NULL,
+            .callback = button_cb,
+            .dispatch_method = ESP_TIMER_TASK,
+            .name = "button_timer"
+        };
+        
+        esp_err_t err = esp_timer_create(&button_timer, &g_button_timer_handle);
+        if (err == ESP_OK) {
+            esp_timer_start_periodic(g_button_timer_handle, TICKS_INTERVAL * 1000U);
+            g_is_timer_running = true;
+        } else {
+            ESP_LOGE(TAG, "Failed to create esp_timer");
+        }
     }
 
     return btn;
@@ -240,7 +267,7 @@ button_handle_t iot_button_create(const button_config_t *config)
         const button_adc_config_t *cfg = &(config->adc_button_config);
         ret = button_adc_init(cfg);
         BTN_CHECK(ESP_OK == ret, "adc button init failed", NULL);
-        btn = button_create_com(1, button_adc_get_key_level, (void *)ADC_BUTTON_COMBINE(cfg->adc_channel, cfg->button_index));
+        btn = button_create_com(1, button_adc_get_key_level, (void *)((uint32_t)ADC_BUTTON_COMBINE(cfg->adc_channel, cfg->button_index)));
     } break;
 
     default:
@@ -262,7 +289,8 @@ esp_err_t iot_button_delete(button_handle_t btn_handle)
         ret = button_gpio_deinit((int)(btn->usr_data));
         break;
     case BUTTON_TYPE_ADC:
-        ret = button_adc_deinit(ADC_BUTTON_SPLIT_CHANNEL(btn->usr_data), ADC_BUTTON_SPLIT_INDEX(btn->usr_data));
+        // Cần ép kiểu sang uint32_t trước khi đưa vào macro xử lý bit để tránh lỗi compiler
+        ret = button_adc_deinit(ADC_BUTTON_SPLIT_CHANNEL((uint32_t)btn->usr_data), ADC_BUTTON_SPLIT_INDEX((uint32_t)btn->usr_data));
         break;
     default:
         break;

@@ -15,7 +15,7 @@
 #ifndef __BOARD_ESP32C3_DEVKITC_H__
 #define __BOARD_ESP32C3_DEVKITC_H__
 
-#define LIGHT_BUTTON_GPIO          9    /* This is the button that is used for toggling the output */
+#define LIGHT_BUTTON_GPIO          GPIO_NUM_9    /* This is the button that is used for toggling the output */
 #define LIGHT_BUTTON_ACTIVE_LEVEL  0
 
 /**
