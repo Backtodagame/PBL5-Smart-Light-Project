@@ -8,8 +8,11 @@ add_compile_options(-fdiagnostics-color=always)
 set(EXTRA_COMPONENT_DIRS ${CMAKE_CURRENT_LIST_DIR}/../components/light_driver
                         ${CMAKE_CURRENT_LIST_DIR}/../components/button
                         ${CMAKE_CURRENT_LIST_DIR}/../components/app_storage
-                        $ENV{IDF_PATH}/examples/common_components/qrcode
-                        )
+                        ${CMAKE_CURRENT_LIST_DIR}/../components/managed_components/espressif__led_strip
+                        ${CMAKE_CURRENT_LIST_DIR}/../components/managed_components/espressif__network_provisioning
+                        ${CMAKE_CURRENT_LIST_DIR}/../components/managed_components/espressif__qrcode
+                        ${CMAKE_CURRENT_LIST_DIR}/../components/managed_components/espressif__cjson
 
+)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(4_network_config)

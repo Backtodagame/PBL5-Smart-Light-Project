@@ -14,7 +14,7 @@
 
 static bool g_output_state = true;
 static uint8_t g_brightness = 100; 
-static int8_t g_fade_dir = -5;    // Giảm 5% độ sáng mỗi nhịp hold
+static int8_t g_fade_dir = -3;    // Giảm 5% độ sáng mỗi nhịp hold
 
 /* Callback: Bật / Tắt đèn khi Click 1 lần */
 static void push_btn_cb(void *arg)

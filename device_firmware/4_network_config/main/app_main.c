@@ -24,15 +24,15 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-#include "wifi_provisioning/manager.h"
-#include "wifi_provisioning/scheme_ble.h"
+#include "network_provisioning/manager.h"
+#include "network_provisioning/scheme_ble.h"
 #include "qrcode.h"
 
 #include "app_storage.h"
 #include "app_priv.h"
 
-#define LIGHT_ESP_WIFI_SSID     "YOUR-SSID"
-#define LIGHT_ESP_WIFI_PASS     "YOUR-PASS"
+#define LIGHT_ESP_WIFI_SSID     ""
+#define LIGHT_ESP_WIFI_PASS     ""
 #define LIGHT_ESP_MAXIMUM_RETRY 5
 
 /* The event group allows multiple bits for each event, but we only care about two events:
@@ -141,7 +141,7 @@ static void wifi_initialize(void)
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     /* Register our event handler for Wi-Fi, IP and Provisioning related events */
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(NETWORK_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
 }
@@ -172,10 +172,10 @@ static void wifi_station_initialize(void)
 static void wifi_prov_mgr_initialize()
 {
     /* Configuration for the provisioning manager */
-    wifi_prov_mgr_config_t config = {
+    network_prov_mgr_config_t config = {
         /* What is the Provisioning Scheme that we want ?
          * wifi_prov_scheme_softap or wifi_prov_scheme_ble */
-        .scheme = wifi_prov_scheme_ble,
+        .scheme = network_prov_scheme_ble,
 
         /* Any default scheme specific event handler that you would
          * like to choose. Since our example application requires
@@ -185,16 +185,16 @@ static void wifi_prov_mgr_initialize()
          * appropriate scheme specific event handler allows the manager
          * to take care of this automatically. This can be set to
          * WIFI_PROV_EVENT_HANDLER_NONE when using wifi_prov_scheme_softap*/
-        .scheme_event_handler = WIFI_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BLE
+        .scheme_event_handler = NETWORK_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BLE
     };
 
     /* Initialize provisioning manager with the
      * configuration parameters set above */
-    ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
+    ESP_ERROR_CHECK(network_prov_mgr_init(config));
 
     bool provisioned = false;
     /* Let's find out if the device is provisioned */
-    ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&provisioned));
+    ESP_ERROR_CHECK(network_prov_mgr_is_wifi_provisioned(&provisioned));
 
     /* If device is not yet provisioned start provisioning service */
     if (!provisioned) {
@@ -214,7 +214,7 @@ static void wifi_prov_mgr_initialize()
          *          using X25519 key exchange and proof of possession (pop) and AES-CTR
          *          for encryption/decryption of messages.
          */
-        wifi_prov_security_t security = WIFI_PROV_SECURITY_1;
+        network_prov_security_t security = NETWORK_PROV_SECURITY_1;
 
         /* Do we want a proof-of-possession (ignored if Security 0 is selected):
          *      - this should be a string with length > 0
@@ -244,22 +244,22 @@ static void wifi_prov_mgr_initialize()
             0xb4, 0xdf, 0x5a, 0x1c, 0x3f, 0x6b, 0xf4, 0xbf,
             0xea, 0x4a, 0x82, 0x03, 0x04, 0x90, 0x1a, 0x02,
         };
-        wifi_prov_scheme_ble_set_service_uuid(custom_service_uuid);
+        network_prov_scheme_ble_set_service_uuid(custom_service_uuid);
 
         /* An optional endpoint that applications can create if they expect to
          * get some additional custom data during provisioning workflow.
          * The endpoint name can be anything of your choice.
          * This call must be made before starting the provisioning.
          */
-        wifi_prov_mgr_endpoint_create("custom-data");
+        network_prov_mgr_endpoint_create("custom-data");
         /* Start provisioning service */
-        ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key));
+        ESP_ERROR_CHECK(network_prov_mgr_start_provisioning(security, pop, service_name, service_key));
 
         /* The handler for the optional endpoint created above.
          * This call must be made after starting the provisioning, and only if the endpoint
          * has already been created above.
          */
-        wifi_prov_mgr_endpoint_register("custom-data", custom_prov_data_handler, NULL);
+        network_prov_mgr_endpoint_register("custom-data", custom_prov_data_handler, NULL);
 
         /* Uncomment the following to wait for the provisioning to finish and then release
          * the resources of the manager. Since in this case de-initialization is triggered
@@ -273,7 +273,7 @@ static void wifi_prov_mgr_initialize()
 
         /* We don't need the manager as device is already provisioned,
          * so let's release it's resources */
-        wifi_prov_mgr_deinit();
+        network_prov_mgr_deinit();
 
         /* Start Wi-Fi station */
         wifi_station_initialize();
