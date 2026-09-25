@@ -28,8 +28,8 @@
 #include "app_priv.h"
 #include "mdns.h"
 
-#define LIGHT_ESP_WIFI_SSID     "YOUR-SSID"
-#define LIGHT_ESP_WIFI_PASS     "YOUR-PASS"
+#define LIGHT_ESP_WIFI_SSID     "Fahasa"
+#define LIGHT_ESP_WIFI_PASS     "Education6868"
 #define LIGHT_ESP_MAXIMUM_RETRY 5
 
 /* The event group allows multiple bits for each event, but we only care about two events:
@@ -130,13 +130,13 @@ static esp_err_t esp_mdns_discovery_start(void)
    char *host_name = "my_smart_light";
    char *instance_name = "esp32c3_smart_light";
 
-   /* 初始化 mdns 组件 */
+    //Initialise the mDNS component
    if (mdns_init() != ESP_OK) {
       ESP_LOGE(TAG, "mdns_init fail");
       return ESP_FAIL;
    }
 
-   /* 设置主机名，用于其他主机查询的 DNS 域名标识 */
+   //Set host name (the DNS domain name tag to be queried by other hosts)
    if (mdns_hostname_set(host_name) != ESP_OK) {
       ESP_LOGE(TAG, "mdns_hostname_set fail");
       goto err;
@@ -144,25 +144,25 @@ static esp_err_t esp_mdns_discovery_start(void)
 
    ESP_LOGI(TAG, "mdns hostname set to: [%s]", host_name);
 
-   /* 设置 mDNS 实例名，用于 mDNS 局域网发现 */
+   ///Set mDNS instance name to be discovered by mDNS LAN
    if (mdns_instance_name_set(instance_name) != ESP_OK) {
       ESP_LOGE(TAG, "mdns_instance_name_set fail");
       goto err;
    }
 
-   /* 设置服务 TXT 字段数据 （可选的）*/
+   //Set service TXT field data (optional)
    mdns_txt_item_t serviceTxtData[1] = {
       {"board", "esp32c3"}
    };
 
-   /* 添加 http 服务，端口号 80 到 mDNS 服务 */
-   /* 第二个参数代表应用层协议， 第三个参数代表传输层协议，需要对应 */
+    // Add HTTP service; port 80 corresponds to mDNS service. The second parameter (application layer
+    // protocol) and the third parameter (transport layer protocol) need to correspond to each other. 
    if (mdns_service_add(instance_name, "_http", "_tcp", 80, serviceTxtData, 1) != ESP_OK) {
       ESP_LOGE(TAG, "mdns_instance_name_set fail");
       goto err;
    }
 
-   /* 设置服务 TXT 字段数据 */
+   //Set service TXT field data
    if (mdns_service_txt_item_set("_http", "_tcp", "path", "/foobar") != ESP_OK) {
       ESP_LOGE(TAG, "mdns_service_txt_item_set fail");
       goto err;
@@ -209,3 +209,5 @@ void app_main()
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
+
+// open new command prompt and type this command: ping my_smart_light.local
