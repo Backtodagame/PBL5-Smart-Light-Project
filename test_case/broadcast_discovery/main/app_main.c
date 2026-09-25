@@ -27,9 +27,9 @@
 #include "app_storage.h"
 #include "app_priv.h"
 
-#define LIGHT_BROADCAST_CLIENT  1
-#define LIGHT_ESP_WIFI_SSID     "YOUR-SSID"
-#define LIGHT_ESP_WIFI_PASS     "YOUR-PASS"
+#define LIGHT_BROADCAST_CLIENT  0
+#define LIGHT_ESP_WIFI_SSID     "Fahasa"
+#define LIGHT_ESP_WIFI_PASS     "Education6868"
 #define LIGHT_ESP_MAXIMUM_RETRY 5
 
 /* The event group allows multiple bits for each event, but we only care about two events:
@@ -133,21 +133,21 @@ static esp_err_t esp_send_broadcast(void)
    socklen_t from_addr_len = sizeof(struct sockaddr_in);
    char udp_recv_buf[64 + 1] = {0};
 
-   // 创建 IPv4 UDP 套接字
+   // Create an IPv4 UDP socket 
    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
    if (sockfd == -1) {
       ESP_LOGE(TAG, "Create UDP socket fail");
       return err;
    }
 
-   // 设置 SO_BROADCAST 套接字选项， 使能该套接字支持广播发送
+   //Set SO_BROADCAST socket option, and use it to send broadcast
    int ret = setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &opt_val, sizeof(int));
    if (ret < 0) {
       ESP_LOGE(TAG, "Set SO_BROADCAST option fail");
       goto exit;
    }
 
-   // 设置广播目的地址和端口
+   //Set broadcast destination address and port
    struct sockaddr_in dest_addr = {
       .sin_family      = AF_INET,
       .sin_port        = htons(3333),
@@ -156,7 +156,7 @@ static esp_err_t esp_send_broadcast(void)
 
    char *broadcast_msg_buf = "Are you Espressif IOT Smart Light";
 
-   // 调用 sendto 接口发送广播数据
+   //Call sendto() to send broadcast data
    ret = sendto(sockfd, broadcast_msg_buf, strlen(broadcast_msg_buf), 0, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr));
    if (ret < 0) {
       ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
@@ -181,14 +181,14 @@ static esp_err_t esp_receive_broadcast(void)
    char udp_server_buf[64 + 1] = {0};
    char *udp_server_send_buf = "ESP32-C3 Smart Light https 443";
 
-   // 创建 IPv4 UDP 套接字
+   //Create an IPv4 UDP socket
    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
    if (sockfd == -1) {
       ESP_LOGE(TAG, "Create UDP socket fail");
       return err;
    }
 
-   // 设置广播目的地址和端口
+   //Set broadcast destination address and port
    struct sockaddr_in server_addr = {
       .sin_family      = AF_INET,
       .sin_port        = htons(3333),
@@ -201,12 +201,13 @@ static esp_err_t esp_receive_broadcast(void)
       goto exit;
    }
 
-   // 调用 recvfrom 接口接收广播数据
+   //Call recvfrom()to receive broadcast data
    while (1) {
       ret = recvfrom(sockfd, udp_server_buf, sizeof(udp_server_buf) - 1, 0, (struct sockaddr *)&from_addr, (socklen_t *)&from_addr_len);
       if (ret > 0) {
          ESP_LOGI(TAG, "Receive udp broadcast from %s:%d, data is %s", inet_ntoa(((struct sockaddr_in *)&from_addr)->sin_addr), ntohs(((struct sockaddr_in *)&from_addr)->sin_port), udp_server_buf);
-         // 如果收到广播请求数据，单播发送对端数据通信应用端口
+         
+         // Upon reception of broadcast request, send data communication port of peer through unicast
          if (!strcmp(udp_server_buf, "Are you Espressif IOT Smart Light")) {
             ret = sendto(sockfd, udp_server_send_buf, strlen(udp_server_send_buf), 0, (struct sockaddr *)&from_addr, from_addr_len);
             if (ret < 0) {

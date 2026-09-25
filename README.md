@@ -1,10 +1,9 @@
 
-# IoT Projects from ESP32-C3 Book
-* [中文版](README_cn.md)
+# PBL5-Smart-Light-Project based on IoT Projects from ESP32-C3 Wireless Adventure book 
 
-### About this book
+### About this project
 
-《ESP32-C3物联网工程项目指导》, _IoT Guidance based on ESP32-C3_ in English, is a book written by Espressif engineers, that provides detailed guidance on IoT development, including hardware design based on ESP32-C3, ESP-IDF, Wi-Fi configuration, ESP RainMaker, etc...
+We do PBL5 Project based on ESP32-C3 Wireless Adventure book 
 
 This repo contains the code example of builing a smart light from the book.
 
@@ -22,8 +21,9 @@ This repo contains the code example of builing a smart light from the book.
 │   ├── 6_project_optimize
 │   ├── 7_insights
 │   └── components
-└── test_case   /*It contains some test cases mentioned in the book*/
-```
+|── test_case   /* It contains some test cases mentioned in the book*/
+|── scripts     /* It contains some script to interact with some test cases*/ 
+    ├── broadcast_client.py /* Testing with project test_case/broadcast_discovery */ 
 
 # Contact
 
