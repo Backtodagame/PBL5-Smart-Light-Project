@@ -73,7 +73,7 @@ Thumbs.db
 **/build/
 
 # 2. Bỏ qua thư viện tự động tải về (Ví dụ: led_strip)
-
+*/mdns_discovery/managed_components/espressif__mdns
 # 3. Chỉ bỏ qua file cấu hình cũ, BẮT BUỘC giữ lại sdkconfig gốc
 **/sdkconfig.old
 

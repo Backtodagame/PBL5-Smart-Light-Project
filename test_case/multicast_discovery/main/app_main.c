@@ -27,9 +27,9 @@
 #include "app_storage.h"
 #include "app_priv.h"
 
-#define LIGHT_MULTICAST_CLIENT  1
-#define LIGHT_ESP_WIFI_SSID     "YOUR-SSID"
-#define LIGHT_ESP_WIFI_PASS     "YOUR-PASS"
+#define LIGHT_MULTICAST_CLIENT  0
+#define LIGHT_ESP_WIFI_SSID     "Fahasa"
+#define LIGHT_ESP_WIFI_PASS     "Education6868"
 #define LIGHT_ESP_MAXIMUM_RETRY 5
 
 /* The event group allows multiple bits for each event, but we only care about two events:
@@ -132,7 +132,7 @@ static int esp_join_multicast_group(int sockfd)
    struct in_addr iaddr = { 0 };
    int err = 0;
    
-   // 配置组播报文发送的接口
+   //Configure sending interface of multicast group
    esp_netif_ip_info_t ip_info = { 0 };
    err = esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"), &ip_info);
    if (err != ESP_OK) {
@@ -147,10 +147,10 @@ static int esp_join_multicast_group(int sockfd)
       goto err;
    }
 
-   // 配置监听的组播组地址
+   //Configure the address of monitoring multicast group
    inet_aton(MULTICAST_IPV4_ADDR, &imreq.imr_multiaddr.s_addr);
 
-   // 配置套接字加入组播组
+   //Configure the socket to join the multicast group
    err = setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                         &imreq, sizeof(struct ip_mreq));
    if (err < 0) {
@@ -169,14 +169,14 @@ static esp_err_t esp_send_multicast(void)
    socklen_t from_addr_len      = sizeof(struct sockaddr_in);
    char udp_recv_buf[64 + 1] = {0};
 
-   // 创建 IPv4 UDP 套接字
+   //Create an IPv4 UDP socket
    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
    if (sockfd == -1) {
       ESP_LOGE(TAG, "Create UDP socket fail");
       return err;
    }
 
-   // 绑定套接字
+   //Bind socket
    saddr.sin_family = PF_INET;
    saddr.sin_port = htons(3333);
    saddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -186,7 +186,7 @@ static esp_err_t esp_send_multicast(void)
       goto exit;
    }
 
-   // 设置组播 TTL 为 1，表示该组播包只能经由一个路由
+   //Set multicast TTL to 1, limiting the multicast packet to one route
    uint8_t ttl = 1;
    ret = setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(uint8_t));
    if (ret < 0) {
@@ -194,14 +194,14 @@ static esp_err_t esp_send_multicast(void)
       goto exit;
    }
 
-   // 加入组播组
+   //Join the multicast group
    ret = esp_join_multicast_group(sockfd);
    if (ret < 0) {
       ESP_LOGE(TAG, "Failed to join multicast group");
       goto exit;
    }
 
-   // 设置组播目的地址和端口
+   //Set multicast destination address and port
    struct sockaddr_in dest_addr = {
       .sin_family = AF_INET,
       .sin_port = htons(3333),
@@ -210,7 +210,7 @@ static esp_err_t esp_send_multicast(void)
 
    char *multicast_msg_buf = "Are you Espressif IOT Smart Light";
 
-   // 调用 sendto 接口发送组播数据
+   //Call sendto() to send multicast data
    ret = sendto(sockfd, multicast_msg_buf, strlen(multicast_msg_buf), 0, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr));
    if (ret < 0) {
       ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
@@ -237,14 +237,14 @@ static esp_err_t esp_recv_multicast(void)
    char udp_server_buf[64 + 1] = {0};
    char *udp_server_send_buf = "ESP32-C3 Smart Light https 443";
 
-   // 创建 IPv4 UDP 套接字
+   //Create an IPv4 UDP socket
    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
    if (sockfd == -1) {
       ESP_LOGE(TAG, "Create UDP socket fail");
       return err;
    }
 
-   // 绑定套接字
+   //Bind socket
    saddr.sin_family = PF_INET;
    saddr.sin_port = htons(3333);
    saddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -254,7 +254,7 @@ static esp_err_t esp_recv_multicast(void)
       goto exit;
    }
 
-   // 设置组播 TTL 为 1，表示该组播包只能经由一个路由
+   //Set multicast TTL to 1, limiting the multicast packet to one route
    uint8_t ttl = 1;
    ret = setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(uint8_t));
    if (ret < 0) {
@@ -262,19 +262,20 @@ static esp_err_t esp_recv_multicast(void)
       goto exit;
    }
 
-   // 加入组播组
+   //Join the multicast group
    ret = esp_join_multicast_group(sockfd);
    if (ret < 0) {
       ESP_LOGE(TAG, "Failed to join multicast group");
       goto exit;
    }
 
-   // 调用 recvfrom 接口接收组播数据
+   //Call recvfrom() to receive multicast data
    while (1) {
       ret = recvfrom(sockfd, udp_server_buf, sizeof(udp_server_buf) - 1, 0, (struct sockaddr *)&from_addr, (socklen_t *)&from_addr_len);
       if (ret > 0) {
          ESP_LOGI(TAG, "Receive udp multicast from %s:%d, data is %s", inet_ntoa(((struct sockaddr_in *)&from_addr)->sin_addr), ntohs(((struct sockaddr_in *)&from_addr)->sin_port), udp_server_buf);
-         // 如果收到组播请求数据，单播发送对端数据通信应用端口
+         
+         //Upon reception of multicast request, send data communication port of peer through unicast
          if (!strcmp(udp_server_buf, "Are you Espressif IOT Smart Light")) {
             ret = sendto(sockfd, udp_server_send_buf, strlen(udp_server_send_buf), 0, (struct sockaddr *)&from_addr, from_addr_len);
             if (ret < 0) {

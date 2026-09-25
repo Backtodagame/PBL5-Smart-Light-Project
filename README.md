@@ -24,6 +24,8 @@ This repo contains the code example of builing a smart light from the book.
 |── test_case   /* It contains some test cases mentioned in the book*/
 |── scripts     /* It contains some script to interact with some test cases*/ 
     ├── broadcast_client.py /* Testing with project test_case/broadcast_discovery */ 
+    ├── multicast_client.py /* Testing with project test_case/multicast_discovery */ 
+
 
 # Contact
 

@@ -1,31 +1,34 @@
 import socket
+import struct
 
-def find_smart_light():
+def find_multicast_light():
     # Define some parameters 
-    UDP_IP = "255.255.255.255" # Broadcast IPv4 Address
-    UDP_PORT = 3333
+    MULTICAST_GROUP = '232.10.11.12' #  Multicast IPv4 Address
+    PORT = 3333
     MESSAGE = b"Are you Espressif IOT Smart Light"
 
     # 1. Initialize UDP Socket 
     client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-
-    # 2.Set Broadcast authorization for socket
-    ret = client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     
-    if (ret != None) :
-        print(f"Set SO_BROADCAST option fail \n")
+    # 2. Config TTL (Time-to-live) 
+    # TTL = 1 means TTL settings are also added to 
+    # ensure that the multicast group can only be performed in the LAN of this route.
+    ttl = struct.pack('b', 1)
+    ret = client.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
 
+    if(ret !=None):
+        print("Set IP_MULTICAST_TTL option fail ")
     # 3. Set timeout for 5 seconds
     client.settimeout(5.0)
     
     try:
-        # 4. Send message
-        ret = client.sendto(MESSAGE, (UDP_IP, UDP_PORT))
+        # 4. Send message to multicast group
+        ret=client.sendto(MESSAGE, (MULTICAST_GROUP, PORT))
         if (ret < 0) :
             print(f"Error occured during sending \n")
         else :
             print(f"Message sent successfully \n")
-        # 5. Listen to responded message
+            
         while True:
             data, addr = client.recvfrom(1024)
             print(f"Receive udp unicast from {addr[0]}:{addr[1]}, data is {data.decode('utf-8')}\n")
@@ -37,4 +40,4 @@ def find_smart_light():
         client.close()
 
 if __name__ == "__main__":
-    find_smart_light()
+    find_multicast_light()
