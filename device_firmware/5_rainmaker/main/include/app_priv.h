@@ -14,11 +14,14 @@
 
 #ifndef __APP_PRIVATE_H__
 #define __APP_PRIVATE_H__
+#include <esp_rmaker_core.h>
 
 #define DEFAULT_POWER       true
 #define DEFAULT_HUE         180
 #define DEFAULT_SATURATION  100
 #define DEFAULT_BRIGHTNESS  25
+
+extern esp_rmaker_device_t *light_device;
 
 /**
  * @brief 

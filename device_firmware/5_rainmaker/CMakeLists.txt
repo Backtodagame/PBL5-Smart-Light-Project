@@ -4,22 +4,19 @@ cmake_minimum_required(VERSION 3.5)
 
 add_compile_options(-fdiagnostics-color=always)
 
-# Determine whether to define RAIMAKER_PATH
-if(NOT DEFINED ENV{RAIMAKER_PATH})
-    message(FATAL_ERROR "Please set RAIMAKER_PATH to esp-rainmaker repo")
-endif(NOT DEFINED ENV{RAIMAKER_PATH})
+set(RAIMAKER_PATH "E:/HK9/PBL5/PBL5-Smart-Light-Project/device_firmware/components/esp-rainmaker/components/esp_rainmaker")
+
 
 # Add RainMaker components and other common application components
 set(EXTRA_COMPONENT_DIRS ${CMAKE_CURRENT_LIST_DIR}/../components/light_driver
                         ${CMAKE_CURRENT_LIST_DIR}/../components/button
                         ${CMAKE_CURRENT_LIST_DIR}/../components/app_storage
                         ${CMAKE_CURRENT_LIST_DIR}/../components/app_wifi
-                        $ENV{RAIMAKER_PATH}/components/esp_rainmaker
-                        $ENV{RAIMAKER_PATH}/components/esp_schedule
-                        $ENV{RAIMAKER_PATH}/components/json_generator
-                        $ENV{RAIMAKER_PATH}/components/json_parser
-                        $ENV{RAIMAKER_PATH}/components/qrcode
-                        $ENV{RAIMAKER_PATH}/components/rmaker_common
+                        ${CMAKE_CURRENT_LIST_DIR}/../components/managed_components/espressif__led_strip
+                        ${CMAKE_CURRENT_LIST_DIR}/../components/managed_components/espressif__network_provisioning
+                        ${RAIMAKER_PATH}
+                        ${CMAKE_CURRENT_LIST_DIR}/../components/managed_components/espressif__qrcode
+                        ${CMAKE_CURRENT_LIST_DIR}/../components/managed_components/espressif__cjson
                         )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

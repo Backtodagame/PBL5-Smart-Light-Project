@@ -24,31 +24,43 @@
 #include <tcpip_adapter.h>
 #endif
 
-#include <wifi_provisioning/manager.h>
+// #include <wifi_provisioning/manager.h>
+#include "network_provisioning/manager.h"
 #ifdef CONFIG_APP_WIFI_PROV_TRANSPORT_BLE
-#include <wifi_provisioning/scheme_ble.h>
+// #include <wifi_provisioning/scheme_ble.h>
+#include "network_provisioning/scheme_ble.h"
 #else /* CONFIG_APP_WIFI_PROV_TRANSPORT_SOFTAP */
 #include <wifi_provisioning/scheme_softap.h>
 #endif /* CONFIG_APP_WIFI_PROV_TRANSPORT_BLE */
 
-#include <qrcode.h>
-#include <nvs.h>
-#include <nvs_flash.h>
+// #include <qrcode.h>
+// #include <nvs.h>
+// #include <nvs_flash.h>
+#include "qrcode.h"
+#include "nvs_flash.h"
+
+
 #include "app_wifi.h"
 
 static const char *TAG = "app_wifi";
 static const int WIFI_CONNECTED_EVENT = BIT0;
 static EventGroupHandle_t wifi_event_group;
+static int s_retry_num = 0;
 
-#define PROV_QR_VERSION "v1"
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT      BIT1
 
 #define PROV_TRANSPORT_SOFTAP   "softap"
+#define PROV_QR_VERSION            "v1"
 #define PROV_TRANSPORT_BLE      "ble"
 #define QRCODE_BASE_URL     "https://rainmaker.espressif.com/qrcode.html"
 
 #define CREDENTIALS_NAMESPACE   "rmaker_creds"
 #define RANDOM_NVS_KEY          "random"
 
+#define LIGHT_ESP_WIFI_SSID     ""
+#define LIGHT_ESP_WIFI_PASS     ""
+#define LIGHT_ESP_MAXIMUM_RETRY 5
 #ifdef CONFIG_APP_WIFI_SHOW_DEMO_INTRO_TEXT
 
 #define ESP_RAINMAKER_GITHUB_EXAMPLES_PATH  "https://github.com/espressif/esp-rainmaker/blob/master/examples"
@@ -92,75 +104,70 @@ static void intro_print(bool provisioned)
 
 #endif /* !APP_WIFI_SHOW_DEMO_INTRO_TEXT */
 
-static void app_wifi_print_qr(const char *name, const char *pop, const char *transport)
+static void wifi_prov_print_qr(const char *name, const char *pop, const char *transport)
 {
-    if (!name || !pop || !transport) {
+    if (!name || !transport) {
         ESP_LOGW(TAG, "Cannot generate QR code payload. Data missing.");
         return;
     }
-    char payload[150];
-    snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" \
+    char payload[150] = {0};
+    if (pop) {
+        snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" \
                     ",\"pop\":\"%s\",\"transport\":\"%s\"}",
                     PROV_QR_VERSION, name, pop, transport);
-#ifdef CONFIG_APP_WIFI_PROV_SHOW_QR
-    ESP_LOGI(TAG, "Scan this QR code from the ESP RainMaker phone app for Provisioning.");
-    qrcode_display(payload);
-#endif /* CONFIG_APP_WIFI_PROV_SHOW_QR */
+    } else {
+        snprintf(payload, sizeof(payload), "{\"ver\":\"%s\",\"name\":\"%s\"" \
+                    ",\"transport\":\"%s\"}",
+                    PROV_QR_VERSION, name, transport);
+    }
+    ESP_LOGI(TAG, "Scan this QR code from the provisioning application for Provisioning.");
+    esp_qrcode_config_t cfg = ESP_QRCODE_CONFIG_DEFAULT();
+    esp_qrcode_generate(&cfg, payload);
     ESP_LOGI(TAG, "If QR code is not visible, copy paste the below URL in a browser.\n%s?data=%s", QRCODE_BASE_URL, payload);
 }
 
 /* Event handler for catching system events */
-static void event_handler(void* arg, esp_event_base_t event_base,
-                          int32_t event_id, void* event_data)
+static void event_handler(void *arg, esp_event_base_t event_base,
+                          int32_t event_id, void *event_data)
 {
-    if (event_base == WIFI_PROV_EVENT) {
-        switch (event_id) {
-            case WIFI_PROV_START:
-                ESP_LOGI(TAG, "Provisioning started");
-                break;
-            case WIFI_PROV_CRED_RECV: {
-                wifi_sta_config_t *wifi_sta_cfg = (wifi_sta_config_t *)event_data;
-                ESP_LOGI(TAG, "Received Wi-Fi credentials"
-                         "\n\tSSID     : %s\n\tPassword : %s",
-                         (const char *) wifi_sta_cfg->ssid,
-                         (const char *) wifi_sta_cfg->password);
-                break;
-            }
-            case WIFI_PROV_CRED_FAIL: {
-                wifi_prov_sta_fail_reason_t *reason = (wifi_prov_sta_fail_reason_t *)event_data;
-                ESP_LOGE(TAG, "Provisioning failed!\n\tReason : %s"
-                         "\n\tPlease reset to factory and retry provisioning",
-                         (*reason == WIFI_PROV_STA_AUTH_ERROR) ?
-                         "Wi-Fi station authentication failed" : "Wi-Fi access-point not found");
-                break;
-            }
-            case WIFI_PROV_CRED_SUCCESS:
-                ESP_LOGI(TAG, "Provisioning successful");
-                break;
-            case WIFI_PROV_END:
-                /* De-initialize manager once provisioning is finished */
-                wifi_prov_mgr_deinit();
-                break;
-            default:
-                break;
-        }
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "Connected with IP Address:" IPSTR, IP2STR(&event->ip_info.ip));
-        /* Signal main application to continue execution */
-        xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
-        esp_wifi_connect();
+        if (s_retry_num < LIGHT_ESP_MAXIMUM_RETRY) {
+            esp_wifi_connect();
+            s_retry_num++;
+            ESP_LOGI(TAG, "retry to connect to the AP");
+        } else {
+            xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
+        }
+        ESP_LOGI(TAG, "connect to the AP fail");
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
+        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+        s_retry_num = 0;
+        xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
 
-static void wifi_init_sta()
+static void wifi_station_initialize()
 {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_LOGI(TAG, "wifi_station_initialize finished.");
+
+    /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
+     * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
+    EventBits_t bits = xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
+
+    /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
+     * happened. */
+    if (bits & WIFI_CONNECTED_BIT) {
+        ESP_LOGI(TAG, "connected to ap SSID:%s password:%s", LIGHT_ESP_WIFI_SSID, LIGHT_ESP_WIFI_PASS);
+    } else if (bits & WIFI_FAIL_BIT) {
+        ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s", LIGHT_ESP_WIFI_SSID, LIGHT_ESP_WIFI_PASS);
+    } else {
+        ESP_LOGE(TAG, "UNEXPECTED EVENT");
+    }
 }
 
 /* Free random_bytes after use only if function returns ESP_OK */
@@ -242,8 +249,11 @@ static esp_err_t get_device_pop(char *pop, size_t max, app_wifi_pop_type_t pop_t
     }
 }
 
-void app_wifi_init(void)
-{
+void wifi_initialize(void)
+{   
+    wifi_event_group = xEventGroupCreate();
+
+
     /* Initialize TCP/IP */
 #ifdef ESP_NETIF_SUPPORTED
     esp_netif_init();
@@ -253,10 +263,9 @@ void app_wifi_init(void)
 
     /* Initialize the event loop */
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    wifi_event_group = xEventGroupCreate();
 
     /* Register our event handler for Wi-Fi, IP and Provisioning related events */
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(NETWORK_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
 
@@ -268,14 +277,15 @@ void app_wifi_init(void)
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 }
 
-esp_err_t app_wifi_start(app_wifi_pop_type_t pop_type)
-{
+esp_err_t wifi_prov_mgr_initialize(app_wifi_pop_type_t pop_type)
+{   
+
     /* Configuration for the provisioning manager */
-    wifi_prov_mgr_config_t config = {
+    network_prov_mgr_config_t config = {
         /* What is the Provisioning Scheme that we want ?
          * wifi_prov_scheme_softap or wifi_prov_scheme_ble */
 #ifdef CONFIG_APP_WIFI_PROV_TRANSPORT_BLE
-        .scheme = wifi_prov_scheme_ble,
+        .scheme = network_prov_scheme_ble,
 #else /* CONFIG_APP_WIFI_PROV_TRANSPORT_SOFTAP */
         .scheme = wifi_prov_scheme_softap,
 #endif /* CONFIG_APP_WIFI_PROV_TRANSPORT_BLE */
@@ -289,7 +299,7 @@ esp_err_t app_wifi_start(app_wifi_pop_type_t pop_type)
          * to take care of this automatically. This can be set to
          * WIFI_PROV_EVENT_HANDLER_NONE when using wifi_prov_scheme_softap*/
 #ifdef CONFIG_APP_WIFI_PROV_TRANSPORT_BLE
-        .scheme_event_handler = WIFI_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BTDM
+        .scheme_event_handler = NETWORK_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BLE
 #else /* CONFIG_APP_WIFI_PROV_TRANSPORT_SOFTAP */
         .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE,
 #endif /* CONFIG_APP_WIFI_PROV_TRANSPORT_BLE */
@@ -297,11 +307,11 @@ esp_err_t app_wifi_start(app_wifi_pop_type_t pop_type)
 
     /* Initialize provisioning manager with the
      * configuration parameters set above */
-    ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
+    ESP_ERROR_CHECK(network_prov_mgr_init(config));
 
     bool provisioned = false;
     /* Let's find out if the device is provisioned */
-    ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&provisioned));
+    ESP_ERROR_CHECK(network_prov_mgr_is_wifi_provisioned(&provisioned));
     /* If device is not yet provisioned start provisioning service */
     if (!provisioned) {
         ESP_LOGI(TAG, "Starting provisioning");
@@ -323,7 +333,7 @@ esp_err_t app_wifi_start(app_wifi_pop_type_t pop_type)
          *          using X25519 key exchange and proof of possession (pop) and AES-CTR
          *          for encryption/decryption of messages.
          */
-        wifi_prov_security_t security = WIFI_PROV_SECURITY_1;
+        network_prov_security_t security = NETWORK_PROV_SECURITY_1;
 
         /* Do we want a proof-of-possession (ignored if Security 0 is selected):
          *      - this should be a string with length > 0
@@ -358,7 +368,7 @@ esp_err_t app_wifi_start(app_wifi_pop_type_t pop_type)
             0xb4, 0xdf, 0x5a, 0x1c, 0x3f, 0x6b, 0xf4, 0xbf,
             0xea, 0x4a, 0x82, 0x03, 0x04, 0x90, 0x1a, 0x02,
         };
-        err = wifi_prov_scheme_ble_set_service_uuid(custom_service_uuid);
+        err = network_prov_scheme_ble_set_service_uuid(custom_service_uuid);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "wifi_prov_scheme_ble_set_service_uuid failed %d", err);
             return err;
@@ -366,10 +376,10 @@ esp_err_t app_wifi_start(app_wifi_pop_type_t pop_type)
 #endif /* CONFIG_APP_WIFI_PROV_TRANSPORT_BLE */
 
         /* Start provisioning service */
-        ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key));
+        ESP_ERROR_CHECK(network_prov_mgr_start_provisioning(security, pop, service_name, service_key));
         /* Print QR code for provisioning */
 #ifdef CONFIG_APP_WIFI_PROV_TRANSPORT_BLE
-        app_wifi_print_qr(service_name, pop, PROV_TRANSPORT_BLE);
+        wifi_prov_print_qr(service_name, pop, PROV_TRANSPORT_BLE);
 #else /* CONFIG_APP_WIFI_PROV_TRANSPORT_SOFTAP */
         app_wifi_print_qr(service_name, pop, PROV_TRANSPORT_SOFTAP);
 #endif /* CONFIG_APP_WIFI_PROV_TRANSPORT_BLE */
@@ -380,10 +390,10 @@ esp_err_t app_wifi_start(app_wifi_pop_type_t pop_type)
         intro_print(provisioned);
         /* We don't need the manager as device is already provisioned,
          * so let's release it's resources */
-        wifi_prov_mgr_deinit();
+        network_prov_mgr_deinit();
 
         /* Start Wi-Fi station */
-        wifi_init_sta();
+        wifi_station_initialize();
     }
     /* Wait for Wi-Fi connection */
     xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT, false, true, portMAX_DELAY);

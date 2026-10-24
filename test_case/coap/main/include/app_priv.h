@@ -37,4 +37,14 @@ int app_driver_set_state(bool state);
  */
 bool app_driver_get_state(void);
 
+
+/**
+ * @brief Hàm phân tích chuỗi lệnh TCP và điều khiển đèn
+ * 
+ * @param cmd Chuỗi ký tự lệnh (Ví dụ: "Open the light")
+ */
+void light_driver_execute_command(const char *cmd);
+
+int light_driver_get_state(void);
+
 #endif /**< __APP_PRIVATE_H__ */

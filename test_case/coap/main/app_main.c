@@ -23,18 +23,19 @@
 #include "lwip/sockets.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
-
+#include "app_storage.h"
 #include "app_priv.h"
-#if 1
-/* Needed until coap_dtls.h becomes a part of libcoap proper */
-#include "libcoap.h"
-#include "coap_dtls.h"
-#endif
-#include "coap.h"
 
-#define LIGHT_SUPPORT_DTLS      1
-#define LIGHT_ESP_WIFI_SSID     "YOUR-SSID"
-#define LIGHT_ESP_WIFI_PASS     "YOUR-PASS"
+// #if 1
+// /* Needed until coap_dtls.h becomes a part of libcoap proper */
+// #include "coap3\libcoap.h"
+// #include "coap3\coap_dtls.h"
+// #endif
+#include "coap3\coap.h"
+
+#define LIGHT_SUPPORT_DTLS      0
+#define LIGHT_ESP_WIFI_SSID     "Local Guy"
+#define LIGHT_ESP_WIFI_PASS     "12341234"
 #define LIGHT_ESP_MAXIMUM_RETRY 5
 
 /* The event group allows multiple bits for each event, but we only care about two events:
@@ -65,7 +66,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "connect to the AP fail");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
-        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "got ip: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
@@ -130,48 +131,62 @@ static void wifi_station_initialize(void)
     }
 }
 
-static char buf[100] = "{\"status\": true}";
-// CoAP GET 方法回调处理函数
-static void esp_coap_get(coap_context_t *ctx, coap_resource_t *resource,
+//Callback function of GET method in CoAP
+static void esp_coap_get( coap_resource_t *resource,
                   coap_session_t *session,
-                  coap_pdu_t *request, coap_binary_t *token,
-                  coap_string_t *query, coap_pdu_t *response)
+                  const coap_pdu_t *request,
+                  const coap_string_t *query, coap_pdu_t *response)
 {
-    coap_add_data_blocked_response(resource, session, request, response, token,
-                                   COAP_MEDIATYPE_TEXT_PLAIN, 0,
-                                   strlen(buf),
-                                   (const u_char *)buf);
+// 1. Đặt mã phản hồi 2.05 (Content) báo hiệu truy vấn thành công
+    coap_pdu_set_code(response, COAP_RESPONSE_CODE(205));
+
+    // 2. Hỏi tầng Driver xem đèn đang Bật hay Tắt
+    int current_state = light_driver_get_state();
+
+    // 3. Chuyển con số thành chữ cho dễ đọc
+    const char* status_str = (current_state == 1) ? "ON" : "OFF";
+    
+    // In log để debug
+    ESP_LOGI(TAG, "Client gọi lệnh GET. Trạng thái đèn trả về: %s", status_str);
+
+    // 4. Nhét chữ "ON" hoặc "OFF" vào bên trong gói tin CoAP để trả về cho Client
+    coap_add_data(response, strlen(status_str), (const uint8_t *)status_str);
 }
 
-// CoAP PUT 方法回调处理函数
-static void esp_coap_put(coap_context_t *ctx,
+//Callback function of PUT method in CoAP
+static void esp_coap_put(
                   coap_resource_t *resource,
                   coap_session_t *session,
-                  coap_pdu_t *request,
-                  coap_binary_t *token,
-                  coap_string_t *query,
+                  const coap_pdu_t *request,
+                  const coap_string_t *query,
                   coap_pdu_t *response)
 {
     size_t size;
     const unsigned char *data;
 
-    coap_resource_notify_observers(resource, NULL);
+    if (coap_get_data(request, &size, &data)) {
+            
+            // In log ra màn hình để kiểm tra (dùng %.*s để in chính xác số byte)
+            ESP_LOGI(TAG, "Nhận được lệnh CoAP PUT: %.*s", (int)size, data);
 
-    /* 读取收到的 CoAP 数据 */
-    (void)coap_get_data(request, &size, &data);
+            // 2. CoAP gửi data dạng byte thô (không có số 0 ở cuối), nên ta phải đưa vào buffer để đóng chuỗi
+            char cmd_buf[64] = {0}; 
+            if (size < sizeof(cmd_buf)) {
+                memcpy(cmd_buf, data, size);
+                cmd_buf[size] = '\0'; // Đóng chuỗi an toàn tuyệt đối
 
-    if (size) {
-        if (strncmp((char *)data, buf, size)) {
-            memcpy(buf, data, size);
-            buf[size] = 0;
-            response->code = COAP_RESPONSE_CODE(204);
-        } else {
-            response->code = COAP_RESPONSE_CODE(500);
+                // 3. Ném chuỗi này xuống thẳng tầng Driver để bật/tắt đèn (Giống hệt bên TCP)
+                light_driver_execute_command(cmd_buf);
+                
+            } else {
+                ESP_LOGW(TAG, "Lệnh gửi đến quá dài, không thể xử lý!");
+            }
         }
-    } else { /* size 为 0 表示接收错误 */
-        response->code = COAP_RESPONSE_CODE(500);
+
+        // 4. Báo cáo lại cho Client là "Đã thực hiện thay đổi thành công" (Mã 2.04 Changed)
+        coap_pdu_set_code(response, COAP_RESPONSE_CODE(204));
     }
-}
+
 
 static void esp_create_coap_server(void)
 {
@@ -183,54 +198,56 @@ static void esp_create_coap_server(void)
         coap_endpoint_t *ep = NULL;
         unsigned wait_ms;
 
-        // 创建 CoAP 服务端套接字
+        //Create a CoAP server socket
+
         coap_address_init(&serv_addr);
         serv_addr.addr.sin6.sin6_family = AF_INET6;
         serv_addr.addr.sin6.sin6_port   = htons(COAP_DEFAULT_PORT);
 
-        // 创建 CoAP ctx
+        //Create CoAP ctx
         ctx = coap_new_context(NULL);
         if (!ctx) {
             ESP_LOGE(TAG, "coap_new_context() failed");
             continue;
         }
 
-        // 设置 CoAP 节点
+        //Set the CoAP protocol node 
         ep = coap_new_endpoint(ctx, &serv_addr, COAP_PROTO_UDP);
         if (!ep) {
             ESP_LOGE(TAG, "udp: coap_new_endpoint() failed");
             goto clean_up;
         }
 
-        // 设置 CoAP 资源 URI
+       //Set CoAP protocol resource URI
         resource = coap_resource_init(coap_make_str_const("light"), 0);
         if (!resource) {
             ESP_LOGE(TAG, "coap_resource_init() failed");
             goto clean_up;
         }
 
-        // 注册 CoAP 资源 URI 对应的 GET 和 PUT 方法回调处理函数
+        //Register callback functions of GET and PUT methods corresponding to CoAP resource URI
         coap_register_handler(resource, COAP_REQUEST_GET, esp_coap_get);
         coap_register_handler(resource, COAP_REQUEST_PUT, esp_coap_put);
 
-        // 设置 CoAP get 资源可见
+        //Set CoAP GET resource observable
         coap_resource_set_get_observable(resource, 1);
 
-        // 添加资源至 CoAP ctx
+        //Add resource to CoAP ctx
         coap_add_resource(ctx, resource);
 
         wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
 
         while (1) {
-            // 等待接收 CoAP 数据
+            //Wait to receive CoAP data
             int result = coap_run_once(ctx, wait_ms);
             if (result < 0) {
                 break;
             } else if (result && (unsigned)result < wait_ms) {
-                // 递减等待的时间
+                //Decrease waiting time
                 wait_ms -= result;
+
             } else {
-                // 重置等待时间
+                ///Reset waiting time
                 wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
             }
         }

@@ -74,6 +74,8 @@ Thumbs.db
 
 # 2. Bỏ qua thư viện tự động tải về (Ví dụ: led_strip)
 */mdns_discovery/managed_components/espressif__mdns
+*/coap/managed_components/espressif__coap
+
 # 3. Chỉ bỏ qua file cấu hình cũ, BẮT BUỘC giữ lại sdkconfig gốc
 **/sdkconfig.old
 
@@ -81,3 +83,5 @@ Thumbs.db
 docs/*/*/_build/
 docs/*/*/sphinx-warning-log.txt
 docs/*/*/sphinx-warning-log-sanitized.txt
+
+*/5_rainmaker/managed_components

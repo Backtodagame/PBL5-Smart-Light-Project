@@ -21,7 +21,7 @@ typedef enum {
  * @brief
  *
  */
-void app_wifi_init();
+void wifi_initialize();
 
 /**
  * @brief
@@ -29,4 +29,4 @@ void app_wifi_init();
  * @param pop_type
  * @return esp_err_t
  */
-esp_err_t app_wifi_start(app_wifi_pop_type_t pop_type);
+esp_err_t wifi_prov_mgr_initialize(app_wifi_pop_type_t pop_type);

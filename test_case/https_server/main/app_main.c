@@ -29,8 +29,8 @@
 #include <esp_https_server.h>
 
 #define LIGHT_SUPPORT_TLS       1
-#define LIGHT_ESP_WIFI_SSID     "YOUR-SSID"
-#define LIGHT_ESP_WIFI_PASS     "YOUR-PASS"
+#define LIGHT_ESP_WIFI_SSID     "Local Guy"
+#define LIGHT_ESP_WIFI_PASS     "12341234"
 #define LIGHT_ESP_MAXIMUM_RETRY 5
 
 /* The event group allows multiple bits for each event, but we only care about two events:
@@ -127,21 +127,21 @@ static void wifi_station_initialize(void)
 }
 
 static char buf[100] = "{\"status\": true}";
-// HTTP GET 请求回调处理函数
+//Callback function of the HTTP GET request
 static esp_err_t esp_light_get_handler(httpd_req_t *req)
 {
-    // 发送含有灯的状态的 JSON 格式数据给客户端
+    //Send data in JSON containing the status of smart lights to the client
     httpd_resp_send(req, buf, strlen(buf));
     return ESP_OK;
 }
 
-// HTTP POST 请求回调处理函数
+//Callback function of the HTTP POST request
 static esp_err_t esp_light_set_handler(httpd_req_t *req)
 {
     int ret, remaining = req->content_len;
     memset(buf, 0 ,sizeof(buf));
     while (remaining > 0) {
-        // 读取 http 请求数据
+        //Read HTTP request data
         if ((ret = httpd_req_recv(req, buf, remaining)) <= 0) {
             if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
                 continue;
@@ -151,18 +151,17 @@ static esp_err_t esp_light_set_handler(httpd_req_t *req)
         remaining -= ret;
     }
     ESP_LOGI(TAG, "%.*s", req->content_len, buf);
-    // TODO: 读到数据后解析并且操作灯
+    //TODO: Read and parse the data; then control the smart light
     return ESP_OK;
 }
-
-// Get 对应的处理回调函数
+//Callback function corresponding to GET
 static const httpd_uri_t status = {
     .uri       = "/light",
     .method    = HTTP_GET,
     .handler   = esp_light_get_handler,
 };
 
-// Post 对应的处理回调函数
+//Callback function corresponding to POST
 static const httpd_uri_t ctrl = {
     .uri       = "/light",
     .method    = HTTP_POST,
@@ -175,10 +174,10 @@ static esp_err_t esp_start_webserver()
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
 
-    // 启动 http 服务器
+    //Start the HTTP server
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
-        // 设置 HTTP URI 对应的回调处理函数
+       //Set the callback function corresponding to the HTTP URI
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &status);
         httpd_register_uri_handler(server, &ctrl);
@@ -213,8 +212,8 @@ static esp_err_t esp_create_https_server(void)
     // 配置服务端所需要的 CA 证书和私钥
     extern const unsigned char cacert_pem_start[] asm("_binary_cacert_pem_start");
     extern const unsigned char cacert_pem_end[]   asm("_binary_cacert_pem_end");
-    conf.cacert_pem = cacert_pem_start;
-    conf.cacert_len = cacert_pem_end - cacert_pem_start;
+    conf.servercert = cacert_pem_start;
+    conf.servercert_len = cacert_pem_end - cacert_pem_start;
 
     extern const unsigned char prvtkey_pem_start[] asm("_binary_prvtkey_pem_start");
     extern const unsigned char prvtkey_pem_end[]   asm("_binary_prvtkey_pem_end");
@@ -272,3 +271,11 @@ void app_main()
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
+
+/* 
+
+var xhr = new XMLHttpRequest();
+xhr.open("POST", "/light", true);
+xhr.send("{\"status\": false}");
+
+*/ 

@@ -28,8 +28,8 @@
 #include "app_priv.h"
 #include "mdns.h"
 
-#define LIGHT_ESP_WIFI_SSID     "Fahasa"
-#define LIGHT_ESP_WIFI_PASS     "Education6868"
+#define LIGHT_ESP_WIFI_SSID     "Local Guy"
+#define LIGHT_ESP_WIFI_PASS     "12341234"
 #define LIGHT_ESP_MAXIMUM_RETRY 5
 
 /* The event group allows multiple bits for each event, but we only care about two events:

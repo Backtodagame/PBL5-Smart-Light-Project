@@ -27,9 +27,9 @@
 #include "app_storage.h"
 #include "app_priv.h"
 
-#define LIGHT_UDP_CLIENT        1
-#define LIGHT_ESP_WIFI_SSID     "YOUR-SSID"
-#define LIGHT_ESP_WIFI_PASS     "YOUR-PASS"
+#define LIGHT_UDP_CLIENT        0
+#define LIGHT_ESP_WIFI_SSID     "Local Guy"
+#define LIGHT_ESP_WIFI_PASS     "12341234"
 #define LIGHT_ESP_MAXIMUM_RETRY 5
 #define HOST_IP                 "192.168.3.80"
 #define PORT                    3333
@@ -180,6 +180,7 @@ static esp_err_t esp_create_udp_server(void)
             rx_buffer[len] = 0;
             ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
             ESP_LOGI(TAG, "%s", rx_buffer);
+            light_driver_execute_command(rx_buffer);
         }
     }
 exit:

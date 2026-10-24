@@ -27,9 +27,10 @@
 #include "app_storage.h"
 #include "app_priv.h"
 
-#define LIGHT_TCP_CLIENT        1
-#define LIGHT_ESP_WIFI_SSID     "YOUR-SSID"
-#define LIGHT_ESP_WIFI_PASS     "YOUR-PASS"
+
+#define LIGHT_TCP_CLIENT        0
+#define LIGHT_ESP_WIFI_SSID     "Local Guy"
+#define LIGHT_ESP_WIFI_PASS     "12341234"
 #define LIGHT_ESP_MAXIMUM_RETRY 5
 #define HOST_IP                 "192.168.3.80"
 #define PORT                    3333
@@ -62,7 +63,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "connect to the AP fail");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
-        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "got ip: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
@@ -139,7 +140,7 @@ static esp_err_t esp_create_tcp_server(void)
    esp_err_t err = ESP_FAIL;
    struct sockaddr_in server_addr;
 
-   // 创建 TCP 套接字
+   //Create a TCP socket
    int listenfd = socket(AF_INET, SOCK_STREAM, 0);
    if (listenfd < 0) {
       ESP_LOGE(TAG, "create socket error");
@@ -148,7 +149,7 @@ static esp_err_t esp_create_tcp_server(void)
 
    ESP_LOGI(TAG, "create socket success, listenfd : %d", listenfd);
 
-   // 启用 SO_REUSEADDR 选项， 允许服务器绑定当前已经存在已建立连接的地址
+    //Enable SO_REUSEADDR, allowing the server to bind the connected address   
    int opt = 1;
    int ret = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
    if (ret < 0) {
@@ -156,7 +157,7 @@ static esp_err_t esp_create_tcp_server(void)
       goto exit;
    }
 
-   // 服务器绑定 IP 全 0，端口 3333 的接口
+   //Bind the server to an interface with all-zero IP address and port number 3333
    server_addr.sin_family = AF_INET;
    server_addr.sin_addr.s_addr = INADDR_ANY;
    server_addr.sin_port = htons(PORT);
@@ -177,14 +178,14 @@ static esp_err_t esp_create_tcp_server(void)
    while (1) {
       struct sockaddr_in source_addr;
       socklen_t addr_len = sizeof(source_addr);
-      // 等待新的 TCP 连接建立成功，并返回与对端通信的套接字
+      //Wait for new TCP connection, and return the communicating socket with the peer
       int sock = accept(listenfd, (struct sockaddr *)&source_addr, &addr_len);
       if (sock < 0) {
          ESP_LOGE(TAG, "Unable to accept connection: errno %d", errno);
          break;
       }
 
-      // 启动 TCP 保活 功能，防止僵尸客户端
+      //Enable TCP keep-alive function to prevent zombie clients
       setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepAlive, sizeof(int));
       setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &keepIdle, sizeof(int));
       setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &keepInterval, sizeof(int));
@@ -205,6 +206,21 @@ static esp_err_t esp_create_tcp_server(void)
          } else {
             rx_buffer[len] = 0;
             ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
+            // TÍCH HỢP ĐIỀU KHIỂN PHẦN CỨNG Ở ĐÂY:
+            if (strncmp(rx_buffer, "Open the light", 14) == 0) {
+                ESP_LOGW(TAG, "==> Đã nhận lệnh BẬT ĐÈN!");
+                light_driver_execute_command(rx_buffer);
+                
+                // Trả lời lại cho Client biết đã làm xong
+                send(sock, "OK-ON", 5, 0); 
+                
+            } 
+            else if (strncmp(rx_buffer, "Close the light", 15) == 0) {
+                ESP_LOGW(TAG, "==> Đã nhận lệnh TẮT ĐÈN!");
+                light_driver_execute_command(rx_buffer);
+                
+                send(sock, "OK-OFF", 6, 0);
+            }
          }
       } while (len > 0);
 
@@ -225,7 +241,7 @@ static esp_err_t esp_create_tcp_client(void)
    dest_addr.sin_family = AF_INET;
    dest_addr.sin_port = htons(PORT);
 
-   // 创建 TCP 套接字
+   //Create a TCP socket
    int sock =  socket(AF_INET, SOCK_STREAM, 0);
    if (sock < 0) {
       ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
@@ -233,7 +249,7 @@ static esp_err_t esp_create_tcp_client(void)
    }
    ESP_LOGI(TAG, "Socket created, connecting to %s:%d", HOST_IP, PORT);
 
-   // 连接 TCP 服务器
+   //Connect to the TCP server
    int ret = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
    if (ret != 0) {
       ESP_LOGE(TAG, "Socket unable to connect: errno %d", errno);
@@ -242,7 +258,7 @@ static esp_err_t esp_create_tcp_client(void)
    }
    ESP_LOGI(TAG, "Successfully connected");
 
-   // 发送 TCP 数据
+   //Send TCP data
    ret = send(sock, payload, strlen(payload), 0);
    if (ret < 0) {
       ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
@@ -257,7 +273,7 @@ exit:
 }
 
 void app_main()
-{
+{   
     int i = 0;
     ESP_LOGE(TAG, "app_main");
 

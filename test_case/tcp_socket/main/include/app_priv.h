@@ -36,5 +36,7 @@ int app_driver_set_state(bool state);
  * @return false 
  */
 bool app_driver_get_state(void);
+void light_driver_execute_command(const char *cmd);
+int light_driver_get_state(void);
 
 #endif /**< __APP_PRIVATE_H__ */

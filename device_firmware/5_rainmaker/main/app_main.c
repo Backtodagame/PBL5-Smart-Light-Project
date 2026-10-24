@@ -85,16 +85,25 @@ void app_main()
     ESP_LOGI(TAG, "NVS Flash initialization");
     app_storage_init();
     
+    // /* 2. BẮT BUỘC: Khởi tạo Lưới mạng và Vòng lặp sự kiện (Bạn đang thiếu) */
+    // esp_netif_init();
+    // esp_event_loop_create_default();
+
+
     /**
      * @brief Application driver initialization
      */
     ESP_LOGI(TAG, "Application driver initialization");
     app_driver_init();
 
-    /**
-     * @brief Initialize Wi-Fi. Note that, this should be called before esp_rmaker_init()
-     */
-    app_wifi_init();
+    /* 4. Khởi tạo chuẩn Wi-Fi Provisioning của RainMaker (Sinh mã QR) */
+    wifi_initialize();
+
+    // /**
+    //  * @brief Initialize Wi-Fi. Note that, this should be called before esp_rmaker_init()
+    //  */
+    // wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    // esp_wifi_init(&cfg);
     
     /**
      * @brief Initialize the ESP RainMaker Agent.
@@ -120,6 +129,7 @@ void app_main()
 
     esp_rmaker_node_add_device(node, light_device);
 
+    
     /* Enable OTA */
     esp_rmaker_ota_config_t ota_config = {
         .server_cert = ota_server_cert,
@@ -144,7 +154,7 @@ void app_main()
      * else, it will start Wi-Fi provisioning. The function will return
      * after a connection has been successfully established
      */
-    err = app_wifi_start(POP_TYPE_RANDOM);
+    err = wifi_prov_mgr_initialize(POP_TYPE_RANDOM);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Could not start Wifi. Aborting!!!");
         vTaskDelay(pdMS_TO_TICKS(5000));
