@@ -14,11 +14,14 @@
 
 #ifndef __APP_PRIVATE_H__
 #define __APP_PRIVATE_H__
+#include <esp_rmaker_core.h>
 
 #define DEFAULT_POWER       true
 #define DEFAULT_HUE         180
 #define DEFAULT_SATURATION  100
 #define DEFAULT_BRIGHTNESS  25
+
+extern esp_rmaker_device_t *light_device;
 
 /**
  * @brief 
@@ -50,7 +53,7 @@ bool app_driver_get_state(void);
  * @param brightness 
  * @return esp_err_t 
  */
-esp_err_t app_light_set(uint32_t hue, uint32_t saturation, uint32_t brightness);
+esp_err_t app_light_set(uint16_t hue, uint16_t saturation, uint16_t brightness);
 
 /**
  * @brief 

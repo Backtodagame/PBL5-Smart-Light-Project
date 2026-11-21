@@ -10,8 +10,10 @@
 
 #include "esp_log.h"
 #include "esp_pm.h"
+#include "esp_private/esp_clk.h"
+#include "esp_err.h"
 
-#include "app_priv.h"
+#include "include/app_priv.h"
 
 #if CONFIG_PM_ENABLE
 
@@ -28,12 +30,9 @@ esp_err_t app_pm_init()
     // Configure dynamic frequency scaling:
     // maximum and minimum frequencies are set in sdkconfig,
     // automatic light sleep is enabled if tickless idle support is enabled.
-#if CONFIG_IDF_TARGET_ESP32
-    esp_pm_config_esp32_t pm_config = {
-#elif CONFIG_IDF_TARGET_ESP32S2
-    esp_pm_config_esp32s2_t pm_config = {
-#elif CONFIG_IDF_TARGET_ESP32C3
-    esp_pm_config_esp32c3_t pm_config = {
+
+#if CONFIG_IDF_TARGET_ESP32C3
+    esp_pm_config_t  pm_config = {
 #endif
             .max_freq_mhz = LIGHT_EXAMPLE_MAX_CPU_FREQ_MHZ,
             .min_freq_mhz = LIGHT_EXAMPLE_MIN_CPU_FREQ_MHZ,
@@ -52,6 +51,7 @@ esp_err_t app_pm_init()
 
     return ESP_OK;
 }
+
 
 esp_err_t app_pm_lock_acquire()
 {
@@ -76,6 +76,21 @@ esp_err_t app_pm_lock_release()
     return ESP_OK;
 }
 
+void app_pm_log_status(void)
+{
+    uint32_t cpu_freq_mhz = esp_clk_cpu_freq() / 1000000;
+
+    ESP_LOGI(TAG, "========== PM STATUS ==========");
+    ESP_LOGI(TAG, "CPU Frequency: %lu MHz",
+             (unsigned long)cpu_freq_mhz);
+
+    ESP_LOGI(TAG, "PM lock information:");
+    esp_pm_dump_locks(stdout);
+
+    ESP_LOGI(TAG, "===============================");
+}
+
+
 #else
 
 esp_err_t app_pm_init()
@@ -91,6 +106,11 @@ esp_err_t app_pm_lock_acquire()
 esp_err_t app_pm_lock_release()
 {
     return ESP_FAIL;
+}
+
+void app_pm_log_status(void)
+{
+    ESP_LOGW(TAG, "PM is disabled");
 }
 
 #endif // CONFIG_PM_ENABLE

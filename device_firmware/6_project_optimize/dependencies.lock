@@ -1,0 +1,17 @@
+dependencies:
+  espressif/cjson:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__cjson
+      type: local
+    version: 1.7.19~2
+  idf:
+    source:
+      type: idf
+    version: 6.0.2
+direct_dependencies:
+- espressif/cjson
+- idf
+manifest_hash: 25e194b2ef5d0a76b20e85a8223853d12e3e053a770f6cc4ae2f929eddeda5e9
+target: esp32c3
+version: 3.0.0

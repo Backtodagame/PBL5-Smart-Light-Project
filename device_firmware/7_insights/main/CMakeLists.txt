@@ -5,7 +5,8 @@ set(include_dirs "include")
 set(DEVELOPMENT_BOARD "board_esp32c3_devkitc.h")
 
 idf_component_register(SRCS "${srcs}"
-                    INCLUDE_DIRS "${include_dirs}")
+                    INCLUDE_DIRS "${include_dirs}"
+                    )
 
 target_add_binary_data(${COMPONENT_TARGET} "server.crt" TEXT)
 

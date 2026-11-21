@@ -33,7 +33,10 @@
 #include "app_wifi.h"
 #include "app_storage.h"
 #include "app_priv.h"
+#include "app_pm.h"
 #include "app_insights.h"
+
+#include "esp_diagnostics.h"
 
 static const char *TAG = "rainmaker_insight";
 
@@ -51,19 +54,19 @@ static esp_err_t write_cb(const esp_rmaker_device_t *device, const esp_rmaker_pa
     const char *device_name = esp_rmaker_device_get_name(device);
     const char *param_name = esp_rmaker_param_get_name(param);
     if (strcmp(param_name, ESP_RMAKER_DEF_POWER_NAME) == 0) {
-        ESP_LOGI(TAG, "Received value = %s for %s - %s",
+        ESP_DIAG_EVENT(TAG, "Received value = %s for %s - %s",
                 val.val.b? "true" : "false", device_name, param_name);
         app_light_set_power(val.val.b);
     } else if (strcmp(param_name, ESP_RMAKER_DEF_BRIGHTNESS_NAME) == 0) {
-        ESP_LOGI(TAG, "Received value = %d for %s - %s",
+        ESP_DIAG_EVENT(TAG, "Received value = %d for %s - %s",
                 val.val.i, device_name, param_name);
         app_light_set_brightness(val.val.i);
     } else if (strcmp(param_name, ESP_RMAKER_DEF_HUE_NAME) == 0) {
-        ESP_LOGI(TAG, "Received value = %d for %s - %s",
+        ESP_DIAG_EVENT(TAG, "Received value = %d for %s - %s",
                 val.val.i, device_name, param_name);
         app_light_set_hue(val.val.i);
     } else if (strcmp(param_name, ESP_RMAKER_DEF_SATURATION_NAME) == 0) {
-        ESP_LOGI(TAG, "Received value = %d for %s - %s",
+        ESP_DIAG_EVENT(TAG, "Received value = %d for %s - %s",
                 val.val.i, device_name, param_name);
         app_light_set_saturation(val.val.i);
     } else {
@@ -100,7 +103,7 @@ void app_main()
     /**
      * @brief Initialize Wi-Fi. Note that, this should be called before esp_rmaker_init()
      */
-    app_wifi_init();
+    wifi_initialize();
     
     /**
      * @brief Initialize the ESP RainMaker Agent.
@@ -143,6 +146,7 @@ void app_main()
     esp_rmaker_schedule_enable();
 
     /* Enable Insights. Requires CONFIG_ESP_INSIGHTS_ENABLED=y */
+
     app_insights_enable();
 
     /* Start the ESP RainMaker Agent */
@@ -153,7 +157,7 @@ void app_main()
      * else, it will start Wi-Fi provisioning. The function will return
      * after a connection has been successfully established
      */
-    err = app_wifi_start(POP_TYPE_RANDOM);
+    err = wifi_prov_mgr_initialize(POP_TYPE_RANDOM);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Could not start Wifi. Aborting!!!");
         vTaskDelay(pdMS_TO_TICKS(5000));
@@ -161,7 +165,11 @@ void app_main()
     }
 
     while (1) {
-        ESP_LOGI(TAG, "[%02d] Hello world!", i++);
+        // ESP_LOGI(TAG, "[%02d] Hello world!", i++);
+        // ESP_DIAG_EVENT(TAG, "[%02d] Hello world!", i++);
+        // ESP_DIAG_ERROR(TAG, "[%02d] Hello error !", i++);
+        // ESP_DIAG_WARN(TAG, "[%02d] Hello warning !", i++);
         vTaskDelay(pdMS_TO_TICKS(5000));
+        // esp_diag_log_event()
     }
 }

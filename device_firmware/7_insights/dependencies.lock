@@ -1,0 +1,87 @@
+dependencies:
+  espressif/cjson:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__cjson
+      type: local
+    version: 1.7.19~2
+  espressif/esp_daylight:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__esp_daylight
+      type: local
+    version: 1.0.1
+  espressif/jsmn:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__jsmn
+      type: local
+    version: 1.1.0
+  espressif/mqtt:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__mqtt
+      type: local
+    version: 1.1.0
+  espressif/rmaker_cmd_resp:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__rmaker_cmd_resp
+      type: local
+    version: 1.0.0
+  espressif/rmaker_common:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__rmaker_common
+      type: local
+    version: 1.10.1
+  espressif/rmaker_common_events:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__rmaker_common_events
+      type: local
+    version: 1.2.0
+  espressif/rmaker_console:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__rmaker_console
+      type: local
+    version: 1.0.1
+  espressif/rmaker_system_ctrl:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__rmaker_system_ctrl
+      type: local
+    version: 1.0.0
+  espressif/rmaker_time_sync:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__rmaker_time_sync
+      type: local
+    version: 1.0.2
+  espressif/rmaker_work_queue:
+    dependencies: []
+    source:
+      path: ../components/managed_components/espressif__rmaker_work_queue
+      type: local
+    version: 1.0.0
+  idf:
+    source:
+      type: idf
+    version: 6.0.2
+direct_dependencies:
+- espressif/cjson
+- espressif/esp_daylight
+- espressif/jsmn
+- espressif/mqtt
+- espressif/rmaker_cmd_resp
+- espressif/rmaker_common
+- espressif/rmaker_common_events
+- espressif/rmaker_console
+- espressif/rmaker_system_ctrl
+- espressif/rmaker_time_sync
+- espressif/rmaker_work_queue
+- idf
+manifest_hash: f68bc5015eee13c9da96cb918dbef2b13a094b42eb359cff65d9320fcc8ed6fa
+target: esp32c3
+version: 3.0.0

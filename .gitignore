@@ -85,3 +85,4 @@ docs/*/*/sphinx-warning-log.txt
 docs/*/*/sphinx-warning-log-sanitized.txt
 
 */5_rainmaker/managed_components
+managed_components/

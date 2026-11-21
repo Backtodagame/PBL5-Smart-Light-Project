@@ -33,6 +33,7 @@
 #include "app_wifi.h"
 #include "app_storage.h"
 #include "app_priv.h"
+#include "app_pm.h"
 
 static const char *TAG = "performance_optimize";
 
@@ -99,7 +100,7 @@ void app_main()
     /**
      * @brief Initialize Wi-Fi. Note that, this should be called before esp_rmaker_init()
      */
-    app_wifi_init();
+    wifi_initialize();
     
     /**
      * @brief Initialize the ESP RainMaker Agent.
@@ -108,7 +109,7 @@ void app_main()
     esp_rmaker_config_t rainmaker_cfg = {
         .enable_time_sync = false,
     };
-    esp_rmaker_node_t *node = esp_rmaker_node_init(&rainmaker_cfg, "ESP RainMaker Device", "Lightbulb");
+    esp_rmaker_node_t *node = esp_rmaker_node_init(&rainmaker_cfg, "WS2812_LED", "Lightbulb");
     if (!node) {
         ESP_LOGE(TAG, "Could not initialise node. Aborting!!!");
         vTaskDelay(pdMS_TO_TICKS(5000));
@@ -149,7 +150,7 @@ void app_main()
      * else, it will start Wi-Fi provisioning. The function will return
      * after a connection has been successfully established
      */
-    err = app_wifi_start(POP_TYPE_RANDOM);
+    err = wifi_prov_mgr_initialize(POP_TYPE_RANDOM);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Could not start Wifi. Aborting!!!");
         vTaskDelay(pdMS_TO_TICKS(5000));
@@ -157,7 +158,8 @@ void app_main()
     }
 
     while (1) {
-        ESP_LOGI(TAG, "[%02d] Hello world!", i++);
+        ESP_LOGI(TAG, "\n\n\n[%02d] Hello world!", i++);
+        app_pm_log_status();
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }

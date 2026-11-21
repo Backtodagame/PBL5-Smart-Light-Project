@@ -18,6 +18,8 @@
 #define LIGHT_BUTTON_GPIO          9    /* This is the button that is used for toggling the output */
 #define LIGHT_BUTTON_ACTIVE_LEVEL  0
 
+#define MODE_BUTTON_GPIO           8   /* This is the button that is used to change mode of the light*/
+#define MODE_BUTTON_ACTIVE_LEVEL   0 
 /**
  * @brief Light driver Macro
  */

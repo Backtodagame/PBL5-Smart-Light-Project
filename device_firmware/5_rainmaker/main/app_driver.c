@@ -19,8 +19,9 @@
 static bool g_power = DEFAULT_POWER;
 static uint8_t g_brightness = DEFAULT_BRIGHTNESS; 
 static uint8_t g_satuation = DEFAULT_SATURATION;
-static uint8_t g_hue = DEFAULT_HUE;
+static uint16_t g_hue = DEFAULT_HUE;
 static int8_t g_fade_dir = -1;   
+static uint16_t mode ;
 
 /* Callback: Bật / Tắt đèn khi Click 1 lần */
 static void push_btn_cb(void *arg)
@@ -100,19 +101,19 @@ void app_driver_init()
     light_driver_set_state(g_power); // Bật lên
 
     /* 2. Khởi tạo Nút nhấn */
-    button_config_t btn_cfg = {
+    button_config_t LIGHT_btn_cfg = {
         .type = BUTTON_TYPE_GPIO,
         .gpio_button_config = {
             .gpio_num     = LIGHT_BUTTON_GPIO,
             .active_level = LIGHT_BUTTON_ACTIVE_LEVEL,
         },
     };
-    button_handle_t btn_handle = iot_button_create(&btn_cfg);
-    if (btn_handle) {
-        iot_button_register_cb(btn_handle, BUTTON_SINGLE_CLICK, push_btn_cb);
-        iot_button_register_cb(btn_handle, BUTTON_LONG_PRESS_HOLD, hold_btn_cb);
-        iot_button_register_cb(btn_handle, BUTTON_PRESS_UP, release_btn_cb);
-        iot_button_register_cb(btn_handle, BUTTON_DOUBLE_CLICK, double_click_cb);
+    button_handle_t LIGHT_btn_handle = iot_button_create(&LIGHT_btn_cfg);
+    if (LIGHT_btn_handle) {
+        iot_button_register_cb(LIGHT_btn_handle, BUTTON_SINGLE_CLICK, push_btn_cb);
+        iot_button_register_cb(LIGHT_btn_handle, BUTTON_LONG_PRESS_HOLD, hold_btn_cb);
+        iot_button_register_cb(LIGHT_btn_handle, BUTTON_PRESS_UP, release_btn_cb);
+        iot_button_register_cb(LIGHT_btn_handle, BUTTON_DOUBLE_CLICK, double_click_cb);
 
     }
 }
@@ -144,46 +145,79 @@ esp_err_t app_light_set_brightness(uint16_t brightness)
     return ESP_OK;
 }
 
+static void hsv2rgb(uint16_t hue_deg, uint8_t saturation_pct, uint8_t brightness_pct, uint8_t *red_out, uint8_t *green_out, uint8_t *blue_out)
+{
+    float hue_float, p_val, q_val, t_val, fractional_part;
+    long sector_index;
+    
+    // 1. Chuẩn hóa góc Hue tuyệt đối trong khoảng từ 0 đến 359 độ (Tránh tràn giá trị 360 hoặc số âm)
+    hue_deg = hue_deg % 360;
+
+    // Chuyển đổi phần trăm (0-100) sang dạng số thực (0.0 - 1.0)
+    float saturation_ratio = saturation_pct / 100.0f;
+    float value_ratio = brightness_pct / 100.0f;
+
+    // Nếu độ bão hòa bằng 0, đèn hiển thị màu trắng/xám
+    if (saturation_ratio <= 0.0f) {
+        uint8_t grayscale_val = (uint8_t)(value_ratio * 255.0f);
+        *red_out = grayscale_val;
+        *green_out = grayscale_val;
+        *blue_out = grayscale_val;
+        return;
+    }
+
+    // Chia dải màu thành 6 vùng (mỗi vùng 60 độ)
+    hue_float = (float)hue_deg / 60.0f;
+    sector_index = (long)hue_float;
+    
+    // Đảm bảo sector_index luôn nằm an toàn từ 0 đến 5
+    if (sector_index > 5) {
+        sector_index = 5;
+    }    
+    fractional_part = hue_float - (float)sector_index;
+    // Tính toán các hệ số pha màu trung gian
+    p_val = value_ratio * (1.0f - saturation_ratio);
+    q_val = value_ratio * (1.0f - (saturation_ratio * fractional_part));
+    t_val = value_ratio * (1.0f - (saturation_ratio * (1.0f - fractional_part)));
+
+    float red_float = 0.0f, green_float = 0.0f, blue_float = 0.0f;
+
+    // Phân bổ tỷ lệ màu theo từng vùng không gian màu
+    switch (sector_index) {
+        case 0:
+            red_float = value_ratio; green_float = t_val;     blue_float = p_val;
+            break;
+        case 1:
+            red_float = q_val;     green_float = value_ratio; blue_float = p_val;
+            break;
+        case 2:
+            red_float = p_val;     green_float = value_ratio; blue_float = t_val;
+            break;
+        case 3:
+            red_float = p_val;     green_float = q_val;     blue_float = value_ratio;
+            break;
+        case 4:
+            red_float = t_val;     green_float = p_val;     blue_float = value_ratio;
+            break;
+        case 5:
+        default:
+            red_float = value_ratio; green_float = p_val;     blue_float = q_val;
+            break;
+    }
+
+    // Quy đổi hệ số thực ra dải giá trị 8-bit (0 - 255)
+    *red_out   = (uint8_t)(red_float * 255.0f);
+    *green_out = (uint8_t)(green_float * 255.0f);
+    *blue_out  = (uint8_t)(blue_float * 255.0f);
+}
+
 esp_err_t app_light_set_hue(uint16_t hue)
 {
-    g_hue = hue;
-    if (!g_power) {
-        g_power = true;
-        light_driver_set_state(g_power);
-        
-        esp_rmaker_param_update_and_report(
-                esp_rmaker_device_get_param_by_type(light_device, ESP_RMAKER_PARAM_POWER),
-                esp_rmaker_bool(g_power));
-    }
-
-uint32_t h = g_hue % 360;           // Hue: 0 - 359 độ
-    uint32_t s = g_satuation;           // Saturation: 0 - 100 %
-    uint32_t v = g_brightness;          // Value/Brightness: 0 - 100 %
-
-    // Tính toán biên độ sáng (Scale từ 0-100 thành 0-255)
-    uint32_t rgb_max = (v * 255) / 100;
-    uint32_t rgb_min = rgb_max * (100 - s) / 100;
-
-    // Chia dải màu Hue thành 6 vùng (mỗi vùng 60 độ)
-    uint32_t i = h / 60;
-    uint32_t diff = h % 60;
-    uint32_t rgb_adj = (rgb_max - rgb_min) * diff / 60;
-
-    uint8_t r = 0, g = 0, b = 0;
-
-    // Phân bổ tỉ lệ Đỏ, Xanh lá, Xanh dương tùy theo vùng màu (i)
-    switch (i) {
-        case 0: r = rgb_max;           g = rgb_min + rgb_adj; b = rgb_min;           break; // Đỏ -> Vàng
-        case 1: r = rgb_max - rgb_adj; g = rgb_max;           b = rgb_min;           break; // Vàng -> Xanh lá
-        case 2: r = rgb_min;           g = rgb_max;           b = rgb_min + rgb_adj; break; // Xanh lá -> Xanh lơ (Cyan)
-        case 3: r = rgb_min;           g = rgb_max - rgb_adj; b = rgb_max;           break; // Xanh lơ -> Xanh dương
-        case 4: r = rgb_min + rgb_adj; g = rgb_min;           b = rgb_max;           break; // Xanh dương -> Tím
-        case 5: r = rgb_max;           g = rgb_min;           b = rgb_max - rgb_adj; break; // Tím -> Đỏ
-    }
-
+    uint8_t r,g,b;
+    g_hue =  hue;
+    hsv2rgb(g_hue, g_satuation, g_brightness, &r, &g, &b);
     // 4. Ra lệnh cho phần cứng đổi màu theo chuẩn RGB vừa tính ra
     light_driver_set_color(r, g, b);
-
     // Bắt buộc phải có return để hàm kết thúc đúng chuẩn esp_err_t
     return ESP_OK;
 }
@@ -191,44 +225,12 @@ uint32_t h = g_hue % 360;           // Hue: 0 - 359 độ
 
 esp_err_t app_light_set_saturation(uint16_t saturation)
 {
+    uint8_t r,g,b;
     g_satuation = saturation;
-    if (!g_power) {
-        g_power = true;
-        light_driver_set_state(g_power);
-        
-        esp_rmaker_param_update_and_report(
-                esp_rmaker_device_get_param_by_type(light_device, ESP_RMAKER_PARAM_POWER),
-                esp_rmaker_bool(g_power));
-    }
-
-    uint32_t h = g_hue % 360;           // Hue: 0 - 359 độ
-    uint32_t s = g_satuation;           // Saturation: 0 - 100 %
-    uint32_t v = g_brightness;          // Value/Brightness: 0 - 100 %
-
-    // Tính toán biên độ sáng (Scale từ 0-100 thành 0-255)
-    uint32_t rgb_max = (v * 255) / 100;
-    uint32_t rgb_min = rgb_max * (100 - s) / 100;
-
-    // Chia dải màu Hue thành 6 vùng (mỗi vùng 60 độ)
-    uint32_t i = h / 60;
-    uint32_t diff = h % 60;
-    uint32_t rgb_adj = (rgb_max - rgb_min) * diff / 60;
-
-    uint8_t r = 0, g = 0, b = 0;
-
-    // Phân bổ tỉ lệ Đỏ, Xanh lá, Xanh dương tùy theo vùng màu (i)
-    switch (i) {
-        case 0: r = rgb_max;           g = rgb_min + rgb_adj; b = rgb_min;           break; // Đỏ -> Vàng
-        case 1: r = rgb_max - rgb_adj; g = rgb_max;           b = rgb_min;           break; // Vàng -> Xanh lá
-        case 2: r = rgb_min;           g = rgb_max;           b = rgb_min + rgb_adj; break; // Xanh lá -> Xanh lơ (Cyan)
-        case 3: r = rgb_min;           g = rgb_max - rgb_adj; b = rgb_max;           break; // Xanh lơ -> Xanh dương
-        case 4: r = rgb_min + rgb_adj; g = rgb_min;           b = rgb_max;           break; // Xanh dương -> Tím
-        case 5: r = rgb_max;           g = rgb_min;           b = rgb_max - rgb_adj; break; // Tím -> Đỏ
-    }
-
+    hsv2rgb(g_hue, g_satuation, g_brightness, &r, &g, &b);
     // 4. Ra lệnh cho phần cứng đổi màu theo chuẩn RGB vừa tính ra
     light_driver_set_color(r, g, b);
-
     // Bắt buộc phải có return để hàm kết thúc đúng chuẩn esp_err_t
     return ESP_OK;
 }
+

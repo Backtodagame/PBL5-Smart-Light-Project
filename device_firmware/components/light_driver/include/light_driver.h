@@ -14,7 +14,9 @@ typedef struct {
 
 esp_err_t light_driver_init(const light_driver_config_t *config);
 esp_err_t light_driver_set_state(bool state);
-esp_err_t light_driver_set_color(uint8_t r, uint8_t g, uint8_t b);
-esp_err_t light_driver_set_brightness(uint8_t brightness_pct); // brightness_pct: 0-100%
-
+esp_err_t light_driver_set_color(uint16_t r, uint16_t g, uint16_t b);
+esp_err_t light_driver_set_brightness(uint16_t brightness_pct); // brightness_pct: 0-100%
+esp_err_t light_driver_set_hue(uint16_t hue);
+esp_err_t light_driver_set_saturation(uint16_t saturation);
+esp_err_t light_driver_set_hsv(uint16_t hue, uint16_t sat, uint16_t brightness);
 #endif
